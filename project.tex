@@ -144,22 +144,22 @@ are missing, the program will print an error and exit
 %   \label{fig:arch}
 % \end{figure}
 
-\noindent\textbf{[Insert architecture diagram here.]}
-
-\medskip
-\noindent The diagram should show:
-\begin{itemize}
-  \item The \textbf{parent process} at the top, reading from standard
-        input and producing final output.
-  \item Five \textbf{worker processes} (Worker~0 through Worker~4).
-  \item For each worker, two pipes:
-    \begin{itemize}
-      \item \texttt{to\_worker[i]} (parent $\to$ worker): carries
-            \texttt{SentenceMsg} structs.
-      \item \texttt{from\_worker[i]} (worker $\to$ parent): carries
-            \texttt{Result} structs.
-    \end{itemize}
-\end{itemize}
+% \noindent\textbf{[Insert architecture diagram here.]}
+%
+% \medskip
+% \noindent The diagram should show:
+% \begin{itemize}
+%   \item The \textbf{parent process} at the top, reading from standard
+%         input and producing final output.
+%   \item Five \textbf{worker processes} (Worker~0 through Worker~4).
+%   \item For each worker, two pipes:
+%     \begin{itemize}
+%       \item \texttt{to\_worker[i]} (parent $\to$ worker): carries
+%             \texttt{SentenceMsg} structs.
+%       \item \texttt{from\_worker[i]} (worker $\to$ parent): carries
+%             \texttt{Result} structs.
+%     \end{itemize}
+% \end{itemize}
 
 %% ─────────────────────────────────────────────
 \section{Communication Protocol}
