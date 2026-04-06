@@ -131,37 +131,19 @@ are missing, the program will print an error and exit
 (\texttt{main.c}:83--90).
 
 %% ─────────────────────────────────────────────
+\newpage
 \section{Architecture Diagram}
 %% ─────────────────────────────────────────────
 
-% Replace "architecture.png" with your actual diagram file.
-% Uncomment the lines below once the image is ready.
-%
-% \begin{figure}[h]
-%   \centering
-%   \includegraphics[width=0.85\textwidth]{architecture.png}
-%   \caption{Architecture of the multi-process sentiment analysis pipeline.}
-%   \label{fig:arch}
-% \end{figure}
-
-% \noindent\textbf{[Insert architecture diagram here.]}
-%
-% \medskip
-% \noindent The diagram should show:
-% \begin{itemize}
-%   \item The \textbf{parent process} at the top, reading from standard
-%         input and producing final output.
-%   \item Five \textbf{worker processes} (Worker~0 through Worker~4).
-%   \item For each worker, two pipes:
-%     \begin{itemize}
-%       \item \texttt{to\_worker[i]} (parent $\to$ worker): carries
-%             \texttt{SentenceMsg} structs.
-%       \item \texttt{from\_worker[i]} (worker $\to$ parent): carries
-%             \texttt{Result} structs.
-%     \end{itemize}
-% \end{itemize}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\textwidth]{diagram.png}
+  \caption{Architecture of the multi-process sentiment analysis pipeline.}
+  \label{fig:arch}
+\end{figure}
 
 %% ─────────────────────────────────────────────
+\newpage
 \section{Communication Protocol}
 %% ─────────────────────────────────────────────
 
@@ -342,17 +324,21 @@ remain.
 \section{Team Contributions}
 %% ─────────────────────────────────────────────
 
-% TODO: Fill in each team member's contributions.
-
 \textbf{Elvis Chen.}
+
+I am in charge of training the model in python, which is available at \url{github.com/pythomiere/SAM} and implement the model in C.
 % Describe Elvis's specific contributions here.
 
 \medskip
 \textbf{Prabeer Sohal.}
+
+I am in charge of the \texttt{Makefile} and writing the report. 
 % Describe Prabeer's specific contributions here.
 
 \medskip
 \textbf{Rian Mehta.}
+
+I am in charge of writing \texttt{main.c} and making the demo video.
 % Describe Rian's specific contributions here.
 
 \end{document}
