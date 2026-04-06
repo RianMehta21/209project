@@ -41,13 +41,13 @@ The parent process reads text from standard input, splits the input into
 sentences based on punctuation, and assigns each sentence to a worker
 process. Each worker computes a sentiment score and sends the result back
 to the parent through a pipe. In \texttt{main.c}, the parent process
-creates five worker processes using \texttt{fork()} (line~106) and
+creates five worker processes using \texttt{fork()} (line~109) and
 establishes two pipes per worker for communication. Each worker executes
-the \texttt{worker()} function (\texttt{main.c}:41), where it waits for
+the \texttt{worker()} function (\texttt{main.c}:42), where it waits for
 input, processes a sentence using \texttt{predict()} from
 \texttt{model.c}, and returns a result. Communication is done using
 fixed-size messages defined by the \texttt{SentenceMsg} and
-\texttt{Result} structures (\texttt{main.c}:16--25), which ensures
+\texttt{Result} structures (\texttt{main.c}:17--26), which ensures
 consistent and predictable data transfer between processes.
 
 The program accepts input through standard input. Users can type input
@@ -128,7 +128,7 @@ make clean
 The program requires the files \texttt{weights.bin} and
 \texttt{vocab.bin} to be present in the working directory. If these files
 are missing, the program will print an error and exit
-(\texttt{main.c}:83--90).
+(\texttt{main.c}:86--93).
 
 %% ─────────────────────────────────────────────
 \newpage
@@ -172,7 +172,7 @@ typedef struct {
 
   \item[Semantics]
     This message represents a task assigned to a worker. The parent
-    constructs a \texttt{SentenceMsg} in \texttt{main.c} (lines~206--209)
+    constructs a \texttt{SentenceMsg} in \texttt{main.c} (lines~209--212)
     after extracting a sentence from the input. The \texttt{job\_id}
     uniquely identifies the sentence, allowing the parent to match results
     to their original order. The \texttt{len} field indicates the length of
@@ -182,7 +182,7 @@ typedef struct {
   \item[Invariants]~
     \begin{itemize}
       \item The worker reads exactly \texttt{sizeof(SentenceMsg)} bytes
-            using \texttt{read\_full()} (\texttt{main.c}:27--39).
+            using \texttt{read\_full()} (\texttt{main.c}:28--40).
       \item Each \texttt{job\_id} is unique and assigned sequentially.
       \item The \texttt{text} field is null-terminated.
       \item The value of \texttt{len} matches the actual sentence length.
@@ -190,7 +190,7 @@ typedef struct {
 
   \item[Error handling]
     The worker validates incoming messages when reading from the pipe. In
-    the \texttt{worker()} function (\texttt{main.c}:41), \texttt{read\_full()}
+    the \texttt{worker()} function (\texttt{main.c}:42), \texttt{read\_full()}
     is used to ensure that a complete \texttt{SentenceMsg} is received. If
     \texttt{read\_full()} returns~0, it indicates that the pipe has been
     closed, and the worker exits. If it returns a negative value, it
@@ -198,7 +198,7 @@ typedef struct {
 
     The \texttt{len} field is used to detect termination. A message with
     \texttt{len == 0} is interpreted as a shutdown signal, sent by the
-    parent after all jobs have been processed (\texttt{main.c}:236--242).
+    parent after all jobs have been processed (\texttt{main.c}:239--245).
     This ensures that workers exit cleanly without requiring external
     signals.
 
@@ -225,7 +225,7 @@ typedef struct {
   \item[Semantics]
     This message contains the result of processing a sentence. The worker
     computes the sentiment score in the \texttt{worker()} function
-    (\texttt{main.c}:41) using \texttt{predict()} from \texttt{model.c}
+    (\texttt{main.c}:42) using \texttt{predict()} from \texttt{model.c}
     (line~23). The \texttt{job\_id} is copied from the original
     \texttt{SentenceMsg} so the parent can store the result in the correct
     position.
@@ -239,7 +239,7 @@ typedef struct {
     \end{itemize}
 
   \item[Error handling]
-    The program uses \texttt{read\_full()} (\texttt{main.c}:27--39) to
+    The program uses \texttt{read\_full()} (\texttt{main.c}:28--40) to
     read data from pipes. This function repeatedly calls \texttt{read()}
     until the requested number of bytes has been received or an error
     occurs, preventing issues caused by partial reads.
@@ -247,7 +247,7 @@ typedef struct {
     Write operations are checked for errors in both the parent and worker
     processes. If a write fails, an error message is printed using
     \texttt{perror()}, and the process exits or stops using the pipe
-    (\texttt{main.c}:57--60, 211--214).
+    (\texttt{main.c}:58--61, 214--217).
 \end{description}
 
 %% ─────────────────────────────────────────────
@@ -255,29 +255,29 @@ typedef struct {
 %% ─────────────────────────────────────────────
 
 The program achieves concurrency by creating five worker processes using
-\texttt{fork()} in \texttt{main.c} (lines~105--132) after all pipes are
+\texttt{fork()} in \texttt{main.c} (lines~108--135) after all pipes are
 initialized. The parent forks all workers before distributing any tasks;
 each worker immediately begins executing the \texttt{worker()} function
-(\texttt{main.c}:41) and blocks on \texttt{read\_full()} waiting for
+(\texttt{main.c}:42) and blocks on \texttt{read\_full()} waiting for
 input. This blocking behavior means workers are always ready to receive
 tasks without requiring explicit readiness checks.
 
 The parent distributes sentences in a round-robin manner across workers by
 writing \texttt{SentenceMsg} structures to their input pipes
-(\texttt{main.c}:211). To avoid deadlock, the parent tracks the number of
+(\texttt{main.c}:214). To avoid deadlock, the parent tracks the number of
 active jobs using the \texttt{active\_jobs} variable
-(\texttt{main.c}:161). The parent sends tasks freely until all five
+(\texttt{main.c}:164). The parent sends tasks freely until all five
 workers are busy (\texttt{active\_jobs == NUM\_WORKERS}), at which point
 it blocks to collect one result from the oldest outstanding worker before
-sending the next task (\texttt{main.c}:184--194).
+sending the next task (\texttt{main.c}:187--197).
 
 Results are collected through blocking reads from worker output pipes and
 stored using \texttt{job\_id} to preserve the original sentence ordering
-(\texttt{main.c}:186--188). After all tasks have been dispatched and all
-results collected (\texttt{main.c}:223--233), the parent sends a
+(\texttt{main.c}:189--191). After all tasks have been dispatched and all
+results collected (\texttt{main.c}:226--236), the parent sends a
 zero-length termination message to each worker
-(\texttt{main.c}:236--242) and uses \texttt{waitpid()} to collect all
-child processes (\texttt{main.c}:247--250), ensuring no zombie processes
+(\texttt{main.c}:239--245) and uses \texttt{waitpid()} to collect all
+child processes (\texttt{main.c}:250--253), ensuring no zombie processes
 remain.
 
 %% ─────────────────────────────────────────────
@@ -288,7 +288,7 @@ remain.
 
   \item \textbf{Worker reads from a closed pipe or encounters end of
   file.}
-  In the \texttt{worker()} function (\texttt{main.c}:41), each worker
+  In the \texttt{worker()} function (\texttt{main.c}:42), each worker
   calls \texttt{read\_full()} to receive a \texttt{SentenceMsg}. If
   \texttt{read\_full()} returns~0 (end of file) or a negative value
   (error), the worker exits the loop and terminates cleanly by closing
@@ -299,7 +299,7 @@ remain.
   \item \textbf{Write to a closed pipe.}
   If a worker or the parent attempts to write to a pipe whose read end
   has been closed, the \texttt{write()} call will fail. In both
-  \texttt{main.c}:57 (worker side) and \texttt{main.c}:211 (parent
+  \texttt{main.c}:58 (worker side) and \texttt{main.c}:214 (parent
   side), all \texttt{write()} calls check the return value. Failures are
   reported using \texttt{perror()}, and the process stops using the pipe
   to avoid undefined behavior.
@@ -307,14 +307,14 @@ remain.
   \item \textbf{Memory allocation failure.}
   The program dynamically allocates memory for buffers and arrays using
   \texttt{malloc()} and \texttt{realloc()}. All allocation calls are
-  checked for \texttt{NULL} (e.g., \texttt{main.c}:139, 146, 156). If
+  checked for \texttt{NULL} (e.g., \texttt{main.c}:142, 149, 159). If
   an allocation fails, an error message is printed and the program exits,
   preventing dereferencing of invalid pointers.
 
   \item \textbf{Malformed or unexpected input.}
   Input is read and split into sentences in \texttt{main.c}
-  (lines~165--218). Empty sentences are skipped (line~176), and sentences
-  longer than \texttt{MAX\_SENTENCE} are truncated (line~177) before
+  (lines~168--222). Empty sentences are skipped (line~179), and sentences
+  longer than \texttt{MAX\_SENTENCE} are truncated (line~180) before
   being copied into a \texttt{SentenceMsg}. This ensures that messages
   always fit within the fixed-size buffer and prevents buffer overflows.
 
@@ -326,19 +326,16 @@ remain.
 
 \textbf{Elvis Chen.}
 
-I am in charge of training the model in python, which is available at \url{github.com/pythomiere/SAM} and implement the model in C.
-% Describe Elvis's specific contributions here.
+I trained the sentiment analysis model in Python using PyTorch, which is available at \url{github.com/pythomiere/SAM}. I implemented the full C inference pipeline, including the neural network forward pass, the binary weight and vocabulary loaders, the tokenizer and the shared header. I also designed the binary serialization format used by \texttt{weights.bin} and \texttt{vocab.bin}.
 
 \medskip
 \textbf{Prabeer Sohal.}
 
-I am in charge of the \texttt{Makefile} and writing the report. 
-% Describe Prabeer's specific contributions here.
+I wrote the \texttt{Makefile} which compiles all source files with \texttt{-Wall -Wextra -g} and links the math library. I also wrote this project report including the project descriptions, communication protocol documentation, and all other written sections. Additionally, I assisted with testing and debugging the program to make sure it ran correctly.
 
 \medskip
 \textbf{Rian Mehta.}
 
-I am in charge of writing \texttt{main.c} and making the demo video.
-% Describe Rian's specific contributions here.
+I wrote \texttt{main.c}, which contains the multi-process working pool including process creation \texttt{fork()}, pipe setup, round-robin task distribution, backpressure handling, and graceful worker shutdown. I also created the architecture diagram and produced the demo video. I also assisted with integration testing and debugging across the full pipeline.
 
 \end{document}
