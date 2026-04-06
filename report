@@ -1,0 +1,168 @@
+CSC209: Systems Programming Mini-Project
+Elvis Chen
+Prabeer Sohal
+Rian Mehta
+
+5.1 Project Overview
+
+This project is a multi-process application using pipes (Category 1). The program performs sentiment analysis on input text by distributing sentences across multiple worker processes and collecting their results. The parent process reads text from standard input, splits the input into one or more sentences based on punctuation, and assigns each sentence to a worker process. Each worker computes a sentiment score and sends the result back to the parent through a pipe. In main.c, the parent process creates multiple worker processes using fork() and establishes two pipes per worker for communication. Each worker executes the worker() function, where it waits for input, processes a sentence, and returns a result. Communication is done using fixed-size messages defined by the SentenceMsg and Result structures, which ensures consistent and predictable data transfer between processes.
+
+The program accepts input through standard input. Users can type input interactively or pipe text from another command or file. e.g:
+
+	echo "This is good. This is bad." | ./sentiment -a
+
+In default mode, the program outputs summary statistics such as the total number of sentences analyzed, the number of positive and negative sentences, the average sentiment score, and the overall sentiment. When the -a flag is used, the program prints detailed results for each sentence, including the sentence text, its predicted label, and its score.
+
+The main concepts of the project are process creation, concurrency, and inter-process communication using pipes. The sentiment model serves as the computational task assigned to each worker, while the parent process coordinates task distribution and result collection.
+
+
+
+5.2 Build Instructions
+
+The project can be compiled using the Makefile.
+To build the project, run the following command:
+
+	make
+
+This compiles all .c files with the flags -Wall -Wextra -g and produces two executables:
+sentiment, which is the main program
+test, which is a helper program used to test sentiment prediction on a single sentence
+
+The Makefile ensures that all object files are built first and then linked together. It also links the math library using -lm, which is required for functions such as expf() used in model.c.
+
+To run the main program, run:
+
+	./sentiment
+
+The program reads input from standard input. Users can type input manually and press Ctrl+D to signal the end of input, or provide input using a pipe or file redirection. For example:
+
+	echo "This is good. This is bad." | ./sentiment -a
+
+To display detailed results for each sentence, the -a flag can be used:
+
+	./sentiment -a
+
+The test program can be used to evaluate a single sentence:
+
+	./test "this is great”
+
+To remove all compiled files, including object files and executables, run:
+
+	make clean
+
+The program requires the files weights.bin and vocab.bin to be present in the working directory. If these files are missing, the program will fail to load the model in load.c.
+
+5.3 Architecture Diagram 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5.4 Communication Protocol
+
+The program uses pipes for communication between the parent and worker processes. Each worker has two dedicated pipes: one for receiving tasks from the parent and one for sending results back. Communication is implemented using fixed-size binary messages, which simplifies parsing and ensures consistent message boundaries. Two message types are used: SentenceMsg and Result.
+
+Message Type: SentenceMsg
+
+Sender: Parent
+Receiver: Worker
+
+Encoding:
+typedef struct {
+    uint32_t job_id;
+    uint32_t len;
+    char text[MAX_SENTENCE];
+} SentenceMsg;
+
+Semantics: This message represents a task assigned to a worker. The parent constructs a SentenceMsg in main.c after extracting a sentence from the input. The job_id uniquely identifies the sentence, allowing the parent to match results to their original order. The len field indicates the length of the sentence, and text contains the sentence itself.
+
+Invariants:
+The worker reads exactly sizeof(SentenceMsg) bytes using the read_full() function
+Each job_id is unique and assigned sequentially
+The text field is null-terminated
+The value of len matches the actual sentence length
+ 
+Error handling: 
+The worker validates incoming messages when reading from the pipe. In the worker() function, read_full() is used to ensure that a complete SentenceMsg is received. If read_full() returns 0, it indicates that the pipe has been closed, and the worker exits. If it returns a negative value, it indicates a read error, and the worker also terminates.
+
+The len field is used to detect termination. A message with len == 0 is interpreted as a shutdown signal sent by the parent after all jobs have been processed. This ensures that workers exit cleanly without requiring external signals.
+
+Since messages are fixed-size and written atomically by the parent, malformed or partial messages are unlikely. The use of read_full() further guarantees that the worker does not process incomplete data.
+
+Message Type: Result
+
+Sender: Worker
+Receiver: Parent
+
+Encoding:
+typedef struct {
+    uint32_t job_id;
+    float score;
+} Result;
+
+Semantics: This message contains the result of processing a sentence. The worker computes the sentiment score in the worker() function using predict() from model.c. The job_id is copied from the original message so the parent can store the result in the correct position.
+
+Invariants:
+The parent reads exactly sizeof(Result) bytes using read_full()
+The job_id corresponds to a previously sent task
+The score is a floating-point value between 0 and 1
+ 
+Error handling: 
+The program uses a helper function read_full() to read data from pipes. This function repeatedly calls read() until the requested number of bytes has been received or an error occurs. This prevents issues caused by partial reads, which can occur with pipe-based communication.
+
+Write operations are checked for errors in both the parent and worker processes. If a write fails, an error message is printed using perror(), and the process exits or stops using the pipe.
+
+
+
+
+
+5.5 Concurrency Model
+
+The program achieves concurrency by creating multiple worker processes using fork() in main.c after all pipes are initialized. The parent forks a fixed number of workers, each of which immediately begins executing the worker() function and blocks on read_full() waiting for input. This blocking behavior means workers are always ready to receive tasks without requiring explicit readiness checks. The parent distributes sentences in a round-robin manner across workers by writing SentenceMsg structures to their input pipes. To avoid blocking on writes, the parent tracks the number of active jobs using the active_jobs variable and only sends new tasks when at least one worker has returned a result. Results are collected through blocking reads from worker output pipes and stored using job_id to preserve ordering. After all tasks are completed, the parent sends a termination message to each worker and uses waitpid() to collect all child processes, ensuring no zombie processes remain.
+
+5.6 Error Handling and Robustness
+
+(i) Worker reads from a closed pipe or encounters end of file.
+In the worker() function, each worker calls read_full() to receive a SentenceMsg. If read_full() returns 0 (end of file) or a negative value (error), the worker exits the loop and terminates cleanly. This prevents the worker from processing invalid or incomplete data.
+
+(ii)Write to a closed pipe
+If a worker or the parent attempts to write to a pipe whose other end has been closed, the write() call will fail. In both main.c and worker(), all write() calls are checked and failures are reported using perror(). After a failure, the process stops using the pipe to avoid undefined behavior.
+
+(iii)Memory allocation failure
+The program dynamically allocates memory for buffers and arrays using malloc() and realloc(). All allocation calls are checked for NULL. If an allocation fails, an error message is printed and the program exits, preventing dereferencing invalid pointers.
+
+(iv)Malformed or unexpected input
+Input is read and split into sentences in main.c. Empty sentences are ignored, and sentences longer than MAX_SENTENCE are truncated before being copied into a SentenceMsg. This ensures that messages always fit within the fixed-size buffer and prevents buffer overflows.
+
+5.7 Team Contributions
+
